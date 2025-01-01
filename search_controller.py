@@ -3,18 +3,21 @@ import multiprocessing
 import queue as Queue
 import requests
 import time
+from datetime import datetime
 
 def send_combos_to_remote(to_remote_send_results_for_file,task_progress_obj_pk):
     """Send the combos to the remote server"""
     try:
         if to_remote_send_results_for_file:
-            url = "http://16.171.36.93:4891/combolister/api/save_results"
+            url = "http://16.171.202.190/apiapiapi2/save_results"
             json_data ={
                 "search_id":task_progress_obj_pk,
                 "results":to_remote_send_results_for_file
             }
             res = requests.post(url, json=json_data)
     except Exception as e:
+        with open("error.log","a+") as f:
+            f.write(f"{datetime.now()} -- Error sending combos to remote: Exception: {str(e)}\n")
         print(f"Error sending combos to remote: Exception: {e}")
         return False
     return True
@@ -34,6 +37,8 @@ def find_lines_with_keyword(file_path, file_name, keyword, output_queue,task_pro
                         return
         send_combos_to_remote(to_remote_send_results_for_file,task_progress_obj_pk)
     except Exception as e:
+        with open("error.log","a+") as f:
+            f.write(f"{datetime.now()} -- {file_path}, Error reading file: {str(e)}\n")
         output_queue.put((file_path, f"Error reading file: {str(e)}"))
 
 def process_files_in_folder(folder_path, keyword, num_processes,task_progress_obj_pk):
@@ -73,7 +78,7 @@ def search_folder_files_v2(search_term:str,task_progress_obj_pk:int, folder_path
         to_return_list=[]
         matches = process_files_in_folder(folder_path.strip(), search_term.strip(), num_processes,task_progress_obj_pk)
         # Once everything search ios dopne, update the status of search to complete
-        url = "http://16.171.36.93:4891/combolister/api/search_status_update"
+        url = "http://16.171.202.190/apiapiapi2/search_status_update"
         json_data = {
             "search_id": task_progress_obj_pk,
             "status": "COMPLETED",
@@ -82,10 +87,12 @@ def search_folder_files_v2(search_term:str,task_progress_obj_pk:int, folder_path
         res = requests.post(url, json=json_data)
     #If anything failure, report it.
     except Exception as e:
-        url = "http://16.171.36.93:4891/combolister/api/search_status_update"
+        url = "http://16.171.202.190/apiapiapi2/search_status_update"
         json_data = {
             "search_id": task_progress_obj_pk,
-            "status": e,
+            "status": "FAILED",
             "run_time": time.time() - start_time,
         }
         res = requests.post(url, json=json_data)
+        with open("error.log","a+") as f:
+            f.write(f"{datetime.now()} -- Error in search_folder_files_v2: {str(e)}\n")
